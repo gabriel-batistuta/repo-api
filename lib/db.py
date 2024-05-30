@@ -1,3 +1,4 @@
+from numpy import delete
 import pyodbc
 import json
 
@@ -30,31 +31,51 @@ class DataBase():
         cursor = conn.cursor()
         return cursor
 
-    def create_table_repositorys(self):
+    def close(self):
+        self.cursor.close()
+        self.cursor.close()
+
+    def _delete_table(self):
+        self.cursor.execute("""DROP TABLE IF EXISTS repositorys;""")
+        self.cursor.commit()
+
+    def _erase_table(self):
+        self.cursor.execute("""DELETE FROM repositorys;""")
+        self.cursor.commit()
+
+    def _create_table_repositorys(self):
         self.cursor.execute("""
             CREATE TABLE repositorys (
                 id BIGSERIAL PRIMARY KEY,
                 name VARCHAR(255),
                 description TEXT,
-                url TEXT
+                url TEXT,
+                tags TEXT[]
             );
         """)
         self.cursor.commit()
-
 
     def select_table_repositorys(self):
         self.cursor.execute("""SELECT * FROM repositorys;""")
         return self.cursor.fetchall()
 
-    def insert_in_repositorys(self, name, description, url):
-        self.cursor.execute("""INSERT INTO repositorys (name, description, url) VALUES (?,?,?);""", (f'{name}',f'{description}',f'{url}'))
+    def insert_in_repositorys(self, name, description, url, tags):
+        query = """
+        INSERT INTO repositorys (name, description, url, tags) 
+        VALUES (?, ?, ?, ?);
+        """
+
+        # transform array into string because pyodbc driver do not suport Python List direct while execute command
+        tags_str = '{' + ','.join(f'"{tag}"' for tag in tags) + '}'
+
+        self.cursor.execute(query, (name, description, url, tags_str))
         self.cursor.commit()
 
 if __name__ == '__main__':
     with open('config.json','r') as file:
         config = json.load(file)
     db = DataBase(config["postgres"])
-    # db.create_table_repositorys()
-    # db.insert_in_repositorys('teste', 'teste', 'teste')
+    # db.insert_in_repositorys("name", "description", "url", ['a','b'])
+    
     query = db.select_table_repositorys()
     print(query)
